@@ -1,0 +1,7 @@
+[project]
+name = "SimProb"
+version = "0.1.0"
+description = "A simulation-based inference library optimized for readability"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
