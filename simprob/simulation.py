@@ -29,5 +29,6 @@ class Iteration(typing.Generic[Transition]):
 def simulate(state, steps: typing.Iterable[Iteration]) -> typing.Iterator:
     yield state
     for step in steps:
-        state = step.observation & step.transition(state)
+        predicted_state = step.transition(state)
+        state = step.observation & predicted_state
         yield state
