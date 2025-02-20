@@ -34,7 +34,7 @@ def simulate_bwd(
     yield state
 
 
-def simulate_fwd_bwd(
+def forward_backward(
     init_state, steps: typing.Reversible[simulation.Iteration[Transition]], last_state
 ) -> typing.Iterator:
     "Simulate forward and backwards filtering and combine the results to a single estimate."

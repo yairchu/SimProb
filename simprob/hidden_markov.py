@@ -1,7 +1,7 @@
 """
 Finite state machine models (aka Hidden Markov models).
 
-This module defines transition classes for use with the back_sim module.
+This module defines transition classes for use with the smoothing module.
 
 See https://en.wikipedia.org/wiki/Hidden_Markov_model
 """
