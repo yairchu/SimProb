@@ -56,7 +56,11 @@ class MultivariateNormal:
 
     def __and__(self, other: "MultivariateNormal") -> "MultivariateNormal":
         "Fuse two Gaussian distributions modelling the same random variable."
-        return MultivariateNormalSubspace(self, np.eye(self.dim)) & other
+        return MultivariateNormalSubspace(self, np.eye(self.dim, other.dim)) & other
+
+    @classmethod
+    def delta(cls, n: int) -> "MultivariateNormal":
+        return cls(np.zeros(n), np.zeros([n, n]))
 
 
 @dataclasses.dataclass
