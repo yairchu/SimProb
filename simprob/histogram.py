@@ -28,3 +28,6 @@ class Histogram:
     def empty(cls, shape):
         "Histogram representing no knowledge (all states have same probability)"
         return cls(np.ones(shape))
+
+    def __repr__(self):
+        return f"Histogram({self.probs})"

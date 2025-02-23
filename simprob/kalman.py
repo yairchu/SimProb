@@ -11,6 +11,8 @@ import dataclasses
 import numpy as np
 import typing
 
+from .multivar_normal import MultivariateNormal, MultivariateNormalSubspace
+
 
 class KalmanState(typing.Protocol):
     def __add__(self, other: "KalmanState") -> "KalmanState": ...
