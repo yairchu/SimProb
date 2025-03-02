@@ -2,20 +2,15 @@
 Multivariate normal (Gaussian) distributions.
 
 Unlike scipy.stats.multivariate_normal, MultivariateNormal implements many useful methods.
+
+Also supports uniform distributions by using PartialCovar as its covariance matrix.
 """
 
 import dataclasses
 import numpy as np
+import typing
 
-
-def assure_symmetric_matrix(mat, do_assert=False):
-    "Enforce matrix symmetry (for covariance matrices)"
-    res = 0.5 * (mat + mat.T)
-    if do_assert:
-        assert np.isclose(mat, res, rtol=0.01).all(), (
-            f"Matrix is not symmetric.\n{mat=}"
-        )
-    return res
+from .partial_covar import PartialCovar
 
 
 @dataclasses.dataclass
@@ -23,13 +18,13 @@ class MultivariateNormal:
     "A multivariate normal (Gaussian) distribution."
 
     mean: np.ndarray  # Mean vector
-    covar: np.ndarray  # Covariance matrix
+    covar: typing.Union[np.ndarray, PartialCovar]  # Covariance matrix
 
     def __post_init__(self):
         assert self.covar.shape == (self.dim, self.dim), (
             "Covariance matrix shape mismatch."
         )
-        self.covar = assure_symmetric_matrix(self.covar)
+        self.covar = PartialCovar.assure_symmetric_matrix(self.covar)
 
     @property
     def dim(self) -> int:
@@ -38,6 +33,10 @@ class MultivariateNormal:
 
     def __add__(self, other: "MultivariateNormal") -> "MultivariateNormal":
         "Compute the distribution of the sum of two independent Gaussian-distributed variables."
+        if other.dim < self.dim:
+            other = other.extend(self.dim)
+        elif self.dim < other.dim:
+            return other + self
         return type(self)(mean=self.mean + other.mean, covar=self.covar + other.covar)
 
     def __sub__(self, other: "MultivariateNormal") -> "MultivariateNormal":
@@ -52,31 +51,40 @@ class MultivariateNormal:
 
     def __rmatmul__(self, other: np.ndarray) -> "MultivariateNormal":
         "Apply a linear transformation to the distribution."
-        return type(self)(mean=other @ self.mean, covar=other @ self.covar @ other.T)
+        if self.dim < other.shape[1]:
+            return other @ self.extend(other.shape[1])
+        return type(self)(
+            mean=other @ self.mean, covar=PartialCovar.transform(self.covar, other)
+        )
 
     def __and__(self, other: "MultivariateNormal") -> "MultivariateNormal":
         "Fuse two Gaussian distributions modelling the same random variable."
-        return MultivariateNormalSubspace(self, np.eye(self.dim, other.dim)) & other
+        if other.dim < self.dim:
+            other = other.extend(self.dim)
+        elif self.dim < other.dim:
+            return other & self
+
+        self_inv = PartialCovar.inv(self.covar)
+        other_inv = PartialCovar.inv(other.covar)
+        covar = PartialCovar.inv(self_inv + other_inv)
+        return type(self)(
+            mean=covar.real @ (self_inv @ self.mean + other_inv @ other.mean),
+            covar=covar,
+        )
+
+    def extend(self, dim: int) -> "MultivariateNormal":
+        add = dim - self.dim
+        return type(self)(
+            np.pad(self.mean, (0, add)), PartialCovar.extend(self.covar, dim)
+        )
 
     @classmethod
-    def delta(cls, n: int) -> "MultivariateNormal":
-        return cls(np.zeros(n), np.zeros([n, n]))
+    def delta(cls, point: np.ndarray) -> "MultivariateNormal":
+        "A point distribution (value is completely known)"
+        [n] = point.shape
+        return cls(point, np.zeros([n, n]))
 
-
-@dataclasses.dataclass
-class MultivariateNormalSubspace:
-    dist: MultivariateNormal  # (z)
-    subspace: np.ndarray  # (H)
-
-    def __and__(self, other: MultivariateNormal) -> MultivariateNormal:
-        "Fuse a distribution with a distribution of a subspace."
-
-        assert self.subspace.shape == (self.dist.dim, other.dim)
-        diff = self.dist - self.subspace @ other  # (y)
-        # This is the only part in this module which is formula heavy and I personally do not find intuitive
-        kalman_gain = np.linalg.solve(diff.covar, self.subspace @ other.covar).T  # (K)
-        assert kalman_gain.shape == (other.dim, self.dist.dim)
-        return type(other)(
-            mean=other.mean + kalman_gain @ diff.mean,
-            covar=(np.eye(other.dim) - kalman_gain @ self.subspace) @ other.covar,
-        )
+    @classmethod
+    def uniform(cls) -> "MultivariateNormal":
+        "A uniform distribution"
+        return cls(np.zeros(0), np.zeros([0, 0]))
