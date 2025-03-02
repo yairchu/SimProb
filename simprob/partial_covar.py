@@ -93,7 +93,8 @@ class PartialCovar:
             return real
 
         return type(covar)(
-            real, bounded_subspace=scipy.linalg.null_space(covar.uniform_subspace @ mat.T).T
+            real,
+            bounded_subspace=scipy.linalg.null_space(covar.uniform_subspace @ mat.T).T,
         )
 
     def __add__(self, other):

@@ -31,15 +31,17 @@ class MultivariateNormal:
         "The number of dimensions of the distribution."
         return self.mean.shape[0]
 
-    def __add__(self, other: "MultivariateNormal") -> "MultivariateNormal":
+    def __add__(self, other) -> "MultivariateNormal":
         "Compute the distribution of the sum of two independent Gaussian-distributed variables."
+        if isinstance(other, np.ndarray):
+            other = type(self).delta(other)
         if other.dim < self.dim:
             other = other.extend(self.dim)
         elif self.dim < other.dim:
             return other + self
         return type(self)(mean=self.mean + other.mean, covar=self.covar + other.covar)
 
-    def __sub__(self, other: "MultivariateNormal") -> "MultivariateNormal":
+    def __sub__(self, other) -> "MultivariateNormal":
         "Compute  the distribution of the difference of two independent Gaussian-distributed variables."
         return self + (-other)
 
