@@ -33,13 +33,8 @@ class MultivariateNormal:
 
     def __add__(self, other) -> "MultivariateNormal":
         "Compute the distribution of the sum of two independent Gaussian-distributed variables."
-        if isinstance(other, np.ndarray):
-            other = type(self).delta(other)
-        if other.dim < self.dim:
-            other = other.extend(self.dim)
-        elif self.dim < other.dim:
-            return other + self
-        return type(self)(mean=self.mean + other.mean, covar=self.covar + other.covar)
+        [a, b] = type(self).broadcast_dists([self, other])
+        return type(self)(mean=a.mean + b.mean, covar=a.covar + b.covar)
 
     def __sub__(self, other) -> "MultivariateNormal":
         "Compute  the distribution of the difference of two independent Gaussian-distributed variables."
@@ -60,24 +55,26 @@ class MultivariateNormal:
         )
 
     def __and__(self, other: "MultivariateNormal") -> "MultivariateNormal":
-        "Fuse two Gaussian distributions modelling the same random variable."
-        if other.dim < self.dim:
-            other = other.extend(self.dim)
-        elif self.dim < other.dim:
-            return other & self
+        return type(self).fuse([self, other])
 
-        self_inv = PartialCovar.inv(self.covar)
-        other_inv = PartialCovar.inv(other.covar)
-        covar = PartialCovar.inv(self_inv + other_inv)
-        return type(self)(
-            mean=covar.real @ (self_inv @ self.mean + other_inv @ other.mean),
-            covar=covar,
-        )
+    @classmethod
+    def fuse(cls, dists):
+        "Fuse two Gaussian distributions modeling the same random variable."
+        invs_and_means = [
+            (PartialCovar.inv(x.covar), x.mean) for x in cls.broadcast_dists(dists)
+        ]
+        covar = PartialCovar.inv(sum(inv for inv, _ in invs_and_means))
+        return cls(covar @ sum(inv @ mean for inv, mean in invs_and_means), covar)
 
     def extend(self, dim: int) -> "MultivariateNormal":
-        add = dim - self.dim
-        return type(self)(
-            np.pad(self.mean, (0, add)), PartialCovar.extend(self.covar, dim)
+        return type(self).concat([self, self.uniform(dim - self.dim)])
+
+    @classmethod
+    def concat(cls, dists):
+        "Concatenate distributions over distinct variables to a joint distribution over their concatenation"
+        return cls(
+            np.concatenate([x.mean for x in dists]),
+            PartialCovar.concat([x.covar for x in dists]),
         )
 
     @classmethod
@@ -87,6 +84,14 @@ class MultivariateNormal:
         return cls(point, np.zeros([n, n]))
 
     @classmethod
-    def uniform(cls) -> "MultivariateNormal":
+    def uniform(cls, dim=0) -> "MultivariateNormal":
         "A uniform distribution"
-        return cls(np.zeros(0), np.zeros([0, 0]))
+        return cls(np.zeros(dim), PartialCovar.uniform(dim))
+
+    @classmethod
+    def broadcast_dists(cls, dists):
+        "Broadcasts distributions to same dimensionality"
+        # Convert state vectors into point-distributions
+        dists = [cls.delta(x) if isinstance(x, np.ndarray) else x for x in dists]
+        max_dim = max(x.dim for x in dists)
+        return [x.extend(max_dim) for x in dists]

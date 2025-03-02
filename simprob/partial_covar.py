@@ -55,24 +55,41 @@ class PartialCovar:
         return self.real if self.bounded_subspace.shape == self.shape else self
 
     @classmethod
-    def extend(cls, covar, dim):
-        "Add uniform distribution dimensions to a given covariance matrix"
-        prev = covar.real.shape[0]
-        if isinstance(covar, np.ndarray):
-            covar = cls(covar, bounded_subspace=np.eye(prev))
-        add = dim - prev
-        if add == 0:
-            return covar
+    def uniform(cls, dim):
+        return cls(np.zeros([dim, dim]), bounded_subspace=np.zeros([0, dim])).simplify()
+
+    @classmethod
+    def concat(cls, covars):
+        """
+        Covariance of joint distribution of distinct variables.
+
+        Generalization of scipy.linalg.block_diag to partial covariances
+        """
+        cum_dims = np.cumsum([x.shape[0] for x in covars])
+        total_dims = cum_dims[-1]
         return cls(
-            np.pad(covar.real, [(0, add)] * 2),
-            bounded_subspace=np.pad(covar.bounded_subspace, [(0, 0), (0, add)]),
+            scipy.linalg.block_diag(*[x.real for x in covars]),
+            bounded_subspace=np.concatenate(
+                [
+                    np.pad(
+                        np.eye(x.shape[0])
+                        if isinstance(x, np.ndarray)
+                        else x.bounded_subspace,
+                        [(0, 0), (dims - x.shape[0], total_dims - dims)],
+                    )
+                    for dims, x in zip(cum_dims, covars)
+                ]
+            ),
         )
 
     @classmethod
     def inv(cls, mat):
-        if isinstance(mat, np.ndarray):
-            mat = cls.extend(mat, len(mat))
-        bounded_part = cls.transform(mat.real, mat.bounded_subspace)
+        bounded_subspace = (
+            np.eye(mat.shape[0])
+            if isinstance(mat, np.ndarray)
+            else mat.bounded_subspace
+        )
+        bounded_part = cls.transform(mat.real, bounded_subspace)
         delta_space = scipy.linalg.null_space(bounded_part)
         if delta_space.shape[1] == 0:
             inv_part = np.linalg.inv(bounded_part)
@@ -84,7 +101,7 @@ class PartialCovar:
                 ),
                 bounded_subspace=var_space.T,
             )
-        return cls.transform(inv_part, mat.bounded_subspace.T)
+        return cls.transform(inv_part, bounded_subspace.T)
 
     @staticmethod
     def transform(covar, mat):
