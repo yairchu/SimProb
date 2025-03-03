@@ -8,27 +8,31 @@ See https://en.wikipedia.org/wiki/Kalman_filter
 """
 
 import dataclasses
+import functools
 import numpy as np
-import typing
+import operator
 
 from .multivar_normal import MultivariateNormal
-
-
-class KalmanState(typing.Protocol):
-    def __add__(self, other: "KalmanState") -> "KalmanState": ...
-    def __sub__(self, other: "KalmanState") -> "KalmanState": ...
-    def __rmatmul__(self, other: np.ndarray) -> "KalmanState": ...
+from .partial_covar import PartialCovar
 
 
 @dataclasses.dataclass
 class KalmanTransition:
     transition_matrix: np.ndarray  # How state evolves (F)
-    expected_state_change: KalmanState  # Expected addition to state (B@u)
 
-    def __call__(self, state: KalmanState) -> KalmanState:
-        return self.transition_matrix @ state + self.expected_state_change
+    def __post_init__(self):
+        # Translate lists to numpy arrays
+        self.transition_matrix = np.asarray(self.transition_matrix)
 
-    def inv(self, state: KalmanState) -> KalmanState:
-        return np.linalg.inv(self.transition_matrix) @ (
-            state - self.expected_state_change
-        )
+    def __call__(self, state):
+        return self.transition_matrix @ state
+
+    def inv(self, state):
+        return np.linalg.inv(self.transition_matrix) @ state
+
+
+def add_process_noise(q, means=None):
+    q = np.asarray(q)
+    if means is None:
+        means = np.zeros(q.shape[0])
+    return functools.partial(operator.add, MultivariateNormal(means, q))
