@@ -55,37 +55,30 @@ class MultivariateNormal:
         )
 
     def __and__(self, other: "MultivariateNormal") -> "MultivariateNormal":
+        "Fuse two distributions modeling the same random variable."
         return type(self).fuse([self, other])
 
     @classmethod
     def fuse(cls, dists):
-        "Fuse two Gaussian distributions modeling the same random variable."
-        invs_and_means = [
-            (PartialCovar.inv(x.covar), x.mean) for x in cls.broadcast_dists(dists)
-        ]
-        covar = PartialCovar.inv(sum(inv for inv, _ in invs_and_means))
-        return cls(covar @ sum(inv @ mean for inv, mean in invs_and_means), covar)
-
-    def extend(self, dim: int) -> "MultivariateNormal":
-        return type(self).concat([self, self.uniform(dim - self.dim)])
-
-    @classmethod
-    def concat(cls, dists):
-        "Concatenate distributions over distinct variables to a joint distribution over their concatenation"
-        return cls(
-            np.concatenate([x.mean for x in dists]),
-            PartialCovar.concat([x.covar for x in dists]),
-        )
+        "Fuse distributions modeling the same random variable."
+        w = [(PartialCovar.inv(x.covar), x.mean) for x in cls.broadcast_dists(dists)]
+        # The resulting covariance is the harmonic mean of the covariances
+        # https://en.wikipedia.org/wiki/Harmonic_mean
+        covar = PartialCovar.inv(sum(inv for inv, _ in w))
+        # The resulting mean is the inverse variance weighted average of the means
+        # https://en.wikipedia.org/wiki/Inverse-variance_weighting#Multivariate_case
+        mean = covar @ sum(inv @ mean for inv, mean in w)
+        return cls(mean, covar)
 
     @classmethod
     def delta(cls, point: np.ndarray) -> "MultivariateNormal":
-        "A point distribution (value is completely known)"
+        "A point distribution with no variance (the value is known exactly)"
         [n] = point.shape
         return cls(point, np.zeros([n, n]))
 
     @classmethod
     def uniform(cls, dim=0) -> "MultivariateNormal":
-        "A uniform distribution"
+        "A uniform distribution (nothing in known)"
         return cls(np.zeros(dim), PartialCovar.uniform(dim))
 
     @classmethod
@@ -95,3 +88,15 @@ class MultivariateNormal:
         dists = [cls.delta(x) if isinstance(x, np.ndarray) else x for x in dists]
         max_dim = max(x.dim for x in dists)
         return [x.extend(max_dim) for x in dists]
+
+    def extend(self, dim: int) -> "MultivariateNormal":
+        "Extend distribution to given dimension (adding unknown/uniformly-distributed dimensions)"
+        return type(self).concat([self, self.uniform(dim - self.dim)])
+
+    @classmethod
+    def concat(cls, dists):
+        "Concatenate distributions over distinct variables to a joint distribution over their concatenation"
+        return cls(
+            np.concatenate([x.mean for x in dists]),
+            PartialCovar.concat([x.covar for x in dists]),
+        )

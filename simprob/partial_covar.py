@@ -44,10 +44,7 @@ class PartialCovar:
     def emulate_as_real(self, inf_const=1e6):
         """
         Create a real matrix "emulation" of the partial covariance
-        by multiplying the extended part by a large number.
-
-        This allows performing sanity tests,
-        like verifying the solve method gives close results to the emulated ones.
+        by representing uniform variance as a very large variance.
         """
         return inf_const * self.uniform_subspace.T @ self.uniform_subspace + self.real
 
@@ -65,22 +62,20 @@ class PartialCovar:
 
         Generalization of scipy.linalg.block_diag to partial covariances
         """
+        spaces = [
+            np.eye(x.shape[0]) if isinstance(x, np.ndarray) else x.bounded_subspace
+            for x in covars
+        ]
         cum_dims = np.cumsum([x.shape[0] for x in covars])
         total_dims = cum_dims[-1]
+        projected_spaces = [
+            np.pad(s, [(0, 0), (dims - s.shape[1], total_dims - dims)])
+            for dims, s in zip(cum_dims, spaces)
+        ]
         return cls(
             scipy.linalg.block_diag(*[x.real for x in covars]),
-            bounded_subspace=np.concatenate(
-                [
-                    np.pad(
-                        np.eye(x.shape[0])
-                        if isinstance(x, np.ndarray)
-                        else x.bounded_subspace,
-                        [(0, 0), (dims - x.shape[0], total_dims - dims)],
-                    )
-                    for dims, x in zip(cum_dims, covars)
-                ]
-            ),
-        )
+            bounded_subspace=np.concatenate(projected_spaces),
+        ).simplify()
 
     @classmethod
     def inv(cls, mat):
@@ -115,15 +110,12 @@ class PartialCovar:
         )
 
     def __add__(self, other):
-        if not isinstance(other, PartialCovar) or other.dim < self.dim:
-            other = type(self).extend(other, self.dim)
-        if self.dim < other.dim:
-            return other + self
+        uni_spaces = [
+            x.uniform_subspace for x in [self, other] if not isinstance(x, np.ndarray)
+        ]
         return type(self)(
             self.real + other.real,
-            bounded_subspace=scipy.linalg.null_space(
-                np.concatenate([self.uniform_subspace, other.uniform_subspace])
-            ).T,
+            bounded_subspace=scipy.linalg.null_space(np.concatenate(uni_spaces)).T,
         ).simplify()
 
     __array_priority__ = 1000  # Ensures NumPy prefers calling our roperators
