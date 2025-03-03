@@ -32,7 +32,11 @@ class MultivariateNormal:
         return self.mean.shape[0]
 
     def __add__(self, other) -> "MultivariateNormal":
-        "Compute the distribution of the sum of two independent Gaussian-distributed variables."
+        """
+        Compute the distribution of the sum of two independent Gaussian-distributed variables.
+
+        Summation forms a cummutative group (https://en.wikipedia.org/wiki/Abelian_group).
+        """
         [a, b] = type(self).broadcast_dists([self, other])
         return type(self)(mean=a.mean + b.mean, covar=a.covar + b.covar)
 
@@ -60,7 +64,11 @@ class MultivariateNormal:
 
     @classmethod
     def fuse(cls, dists):
-        "Fuse distributions modeling the same random variable."
+        """
+        Fuse distributions modeling the same random variable.
+
+        Fusion forms a cummutative group (https://en.wikipedia.org/wiki/Abelian_group).
+        """
         w = [(PartialCovar.inv(x.covar), x.mean) for x in cls.broadcast_dists(dists)]
         # The resulting covariance is the harmonic mean of the covariances
         # https://en.wikipedia.org/wiki/Harmonic_mean
@@ -72,13 +80,25 @@ class MultivariateNormal:
 
     @classmethod
     def delta(cls, point: np.ndarray) -> "MultivariateNormal":
-        "A point distribution with no variance (the value is known exactly)"
+        """
+        A point distribution with no variance (the value is known exactly).
+
+        delta of zeros is the identity element for summation:
+
+            delta(zeros(dim)) + x == x
+        """
         [n] = point.shape
         return cls(point, np.zeros([n, n]))
 
     @classmethod
     def uniform(cls, dim=0) -> "MultivariateNormal":
-        "A uniform distribution (nothing in known)"
+        """
+        A uniform distribution (nothing in known).
+
+        The uniform distribution is the identity element for fusion:
+
+            uniform() & x == x
+        """
         return cls(np.zeros(dim), PartialCovar.uniform(dim))
 
     @classmethod
