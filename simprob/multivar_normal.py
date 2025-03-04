@@ -4,6 +4,13 @@ Multivariate normal (Gaussian) distributions.
 Unlike scipy.stats.multivariate_normal, MultivariateNormal implements many useful methods.
 
 Also supports uniform distributions by using PartialCovar as its covariance matrix.
+
+Properties: (TODO: test with hypothesis)
+* fuse/`&` is associative and cummutative, with uniform as its identity element
+* `+` is associative and cummutative, with delta(zeros(dim)) as its identity element
+* Distributive properties:
+  * (m @ a) & (m @ b) = m @ (a & b)
+  * (m @ a) + (m @ b) = m @ (a + b)
 """
 
 import dataclasses
