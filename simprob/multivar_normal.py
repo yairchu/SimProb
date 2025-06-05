@@ -38,6 +38,11 @@ class MultivariateNormal:
         "The number of dimensions of the distribution."
         return self.mean.shape[0]
 
+    @property
+    def precision(self) -> np.ndarray:
+        "The precision matrix (inverse of covariance matrx)"
+        return PartialCovar.inv(self.precision)
+
     def __add__(self, other) -> "MultivariateNormal":
         """
         Compute the distribution of the sum of two independent Gaussian-distributed variables.
@@ -76,13 +81,13 @@ class MultivariateNormal:
 
         Fusion forms a cummutative group (https://en.wikipedia.org/wiki/Abelian_group).
         """
-        w = [(PartialCovar.inv(x.covar), x.mean) for x in cls.broadcast_dists(dists)]
+        w = [(x.precision, x.mean) for x in cls.broadcast_dists(dists)]
         # The resulting covariance is the harmonic mean of the covariances
         # https://en.wikipedia.org/wiki/Harmonic_mean
-        covar = PartialCovar.inv(sum(inv for inv, _ in w))
+        covar = PartialCovar.inv(sum(prec for prec, _ in w))
         # The resulting mean is the inverse variance weighted average of the means
         # https://en.wikipedia.org/wiki/Inverse-variance_weighting#Multivariate_case
-        mean = covar @ sum(inv @ mean for inv, mean in w)
+        mean = covar @ sum(prec @ mean for prec, mean in w)
         return cls(mean, covar)
 
     @classmethod
