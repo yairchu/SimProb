@@ -13,35 +13,66 @@ Properties: (TODO: test with hypothesis)
   * (m @ a) + (m @ b) = m @ (a + b)
 """
 
-import dataclasses
 import numpy as np
-import typing
 
 from .partial_covar import PartialCovar
 
 
-@dataclasses.dataclass
 class MultivariateNormal:
     "A multivariate normal (Gaussian) distribution."
 
-    mean: np.ndarray  # Mean vector
-    covar: typing.Union[np.ndarray, PartialCovar]  # Covariance matrix
-
-    def __post_init__(self):
-        assert self.covar.shape == (self.dim, self.dim), (
-            "Covariance matrix shape mismatch."
+    def __init__(
+        self,
+        *,
+        mean=None,
+        covar=None,
+        info_vector=None,
+        precision=None,
+    ):
+        assert (mean is None) != (info_vector is None), (
+            "Either mean or info_vector must be provided, but not both."
         )
-        self.covar = PartialCovar.assure_symmetric_matrix(self.covar)
+        assert (covar is None) != (precision is None), (
+            "Either covar or precision must be provided, but not both."
+        )
+        self._mean = mean
+        self._covar = covar
+        self._info_vector = info_vector
+        self._precision = precision
+
+        m = precision if covar is None else covar
+        assert m.shape == (self.dim, self.dim), (
+            "Covariance/precision matrix shape mismatch."
+        )
+
+    @property
+    def mean(self):
+        if self._mean is None:
+            self._mean = np.linalg.solve(self.precision, self.info_vector)
+        return self._mean
+
+    @property
+    def info_vector(self):
+        if self._info_vector is None:
+            self._info_vector = self.precision @ self.mean
+        return self._info_vector
+
+    @property
+    def precision(self):
+        if self._precision is None:
+            self._precision = PartialCovar.inv(self.covar)
+        return self._precision
+
+    @property
+    def covar(self):
+        if self._covar is None:
+            self._covar = PartialCovar.inv(self.precision)
+        return self._covar
 
     @property
     def dim(self) -> int:
         "The number of dimensions of the distribution."
-        return self.mean.shape[0]
-
-    @property
-    def precision(self) -> np.ndarray:
-        "The precision matrix (inverse of covariance matrx)"
-        return PartialCovar.inv(self.precision)
+        return (self._info_vector if self._mean is None else self._mean).shape[0]
 
     def __add__(self, other) -> "MultivariateNormal":
         """
@@ -81,14 +112,11 @@ class MultivariateNormal:
 
         Fusion forms a cummutative group (https://en.wikipedia.org/wiki/Abelian_group).
         """
-        w = [(x.precision, x.mean) for x in cls.broadcast_dists(dists)]
-        # The resulting covariance is the harmonic mean of the covariances
-        # https://en.wikipedia.org/wiki/Harmonic_mean
-        covar = PartialCovar.inv(sum(prec for prec, _ in w))
-        # The resulting mean is the inverse variance weighted average of the means
-        # https://en.wikipedia.org/wiki/Inverse-variance_weighting#Multivariate_case
-        mean = covar @ sum(prec @ mean for prec, mean in w)
-        return cls(mean, covar)
+        dists = cls.broadcast_dists(dists)
+        return cls(
+            info_vector=sum(x.info_vector for x in dists),
+            precision=sum(x.precision for x in dists),
+        )
 
     @classmethod
     def delta(cls, point: np.ndarray) -> "MultivariateNormal":
@@ -100,7 +128,7 @@ class MultivariateNormal:
             delta(zeros(dim)) + x == x
         """
         [n] = point.shape
-        return cls(point, np.zeros([n, n]))
+        return cls(mean=point, covar=np.zeros([n, n]))
 
     @classmethod
     def uniform(cls, dim=0) -> "MultivariateNormal":
@@ -111,7 +139,7 @@ class MultivariateNormal:
 
             uniform() & x == x
         """
-        return cls(np.zeros(dim), PartialCovar.uniform(dim))
+        return cls(mean=np.zeros(dim), precision=np.zeros([dim, dim]))
 
     @classmethod
     def broadcast_dists(cls, dists):
@@ -129,6 +157,6 @@ class MultivariateNormal:
     def concat(cls, dists):
         "Concatenate distributions over distinct variables to a joint distribution over their concatenation"
         return cls(
-            np.concatenate([x.mean for x in dists]),
-            PartialCovar.concat([x.covar for x in dists]),
+            mean=np.concatenate([x.mean for x in dists]),
+            covar=PartialCovar.concat([x.covar for x in dists]),
         )

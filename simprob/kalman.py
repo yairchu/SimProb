@@ -35,4 +35,4 @@ def add_process_noise(q, means=None):
     q = np.asarray(q)
     if means is None:
         means = np.zeros(q.shape[0])
-    return functools.partial(operator.add, MultivariateNormal(means, q))
+    return functools.partial(operator.add, MultivariateNormal(mean=means, covar=q))

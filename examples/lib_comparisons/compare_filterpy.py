@@ -55,7 +55,7 @@ def _(filterpy, np, simprob):
     print()
     print("simprob:")
     for r in simprob.simulate(
-        simprob.kalman.MultivariateNormal(start_x, start_P),
+        simprob.kalman.MultivariateNormal(mean=start_x, covar=start_P),
         [simprob.kalman.KalmanTransition(F)] * 5,
     ):
         print("x =", r.mean)
@@ -131,14 +131,16 @@ def _(filterpy, np, plt, simprob):
     plt.plot(xs[:, 0], label="Kalman (filterpy)")
     res = list(
         simprob.simulate(
-            simprob.kalman.MultivariateNormal(np.array(x0), _P),
+            simprob.kalman.MultivariateNormal(mean=np.array(x0), covar=_P),
             simprob.prepend_all(
                 [
                     simprob.kalman.KalmanTransition(kf.F),
                     simprob.kalman.add_process_noise(init_Q),
                 ],
                 [
-                    simprob.fuse(simprob.kalman.MultivariateNormal(o[None], kf.R))
+                    simprob.fuse(
+                        simprob.kalman.MultivariateNormal(mean=o[None], covar=kf.R)
+                    )
                     for o in zs
                 ],
             ),

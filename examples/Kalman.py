@@ -46,7 +46,7 @@ def _(accel_std, noise_std, np, observations, plot_measures, plt, scipy):
     dims = 2
 
     kobs = [
-        kalman.MultivariateNormal(np.array([x]), np.array([[noise_std**2]]))
+        kalman.MultivariateNormal(mean=np.array([x]), covar=np.array([[noise_std**2]]))
         for x in observations
     ]
     steps = simprob.prepend_all(

@@ -71,7 +71,7 @@ def _(np, plt, pykalman, simprob):
 
     obs = [
         np.linalg.inv(np.array(observation_matrix))
-        @ simprob.kalman.MultivariateNormal(o, observation_covariance)
+        @ simprob.kalman.MultivariateNormal(mean=o, covar=observation_covariance)
         - np.array(observation_offset)
         for o in observations
     ]
@@ -86,7 +86,7 @@ def _(np, plt, pykalman, simprob):
     )
 
     init = obs[0] & simprob.kalman.MultivariateNormal(
-        np.array(initial_state_mean), np.array(initial_state_covariance)
+        mean=np.array(initial_state_mean), covar=np.array(initial_state_covariance)
     )
     res = list(simprob.simulate(init, iters))[::3]
     plt.plot([r.mean[0] for r in res], "--", label="Kalman (simprob)")
