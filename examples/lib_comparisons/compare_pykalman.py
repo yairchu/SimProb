@@ -17,6 +17,7 @@ def _():
 
     import pykalman
     import simprob.kalman
+
     return mo, np, plt, pykalman, simprob
 
 
@@ -58,18 +59,14 @@ def _(np, plt, pykalman, simprob):
         initial_state_covariance,
         random_state=random_state,
     )
-    states, observations = kf.sample(
-        n_timesteps=50, initial_state=initial_state_mean
-    )
+    states, observations = kf.sample(n_timesteps=50, initial_state=initial_state_mean)
 
     # estimate state with filtering and smoothing
     filtered_state_estimates = kf.filter(observations)[0]
 
     # draw estimates
     plt.plot(states[:, 0], label="True state")
-    plt.scatter(
-        np.arange(len(observations)), observations[:, 0], label="Observations"
-    )
+    plt.scatter(np.arange(len(observations)), observations[:, 0], label="Observations")
     plt.plot(filtered_state_estimates[:, 0], label="Kalman (pykalman)")
 
     obs = [

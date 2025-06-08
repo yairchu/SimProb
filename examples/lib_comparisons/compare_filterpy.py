@@ -18,6 +18,7 @@ def _():
     import filterpy.common
     import filterpy.kalman
     import simprob.kalman
+
     return filterpy, mo, np, plt, simprob
 
 
@@ -89,7 +90,6 @@ def _(filterpy, np, plt, simprob):
             zs.append(x + np.random.randn() * z_std)
         return (np.array(xs), np.array(zs))
 
-
     def pos_vel_filter(x, P, R, Q=0.0, dt=1.0):
         """Returns a KalmanFilter which implements a
         constant velocity model for a state [x dx].T
@@ -108,7 +108,6 @@ def _(filterpy, np, plt, simprob):
         else:
             kf.Q[:] = Q
         return kf
-
 
     plt.title("filterpy and simprob produce same results")
     dt = 0.1

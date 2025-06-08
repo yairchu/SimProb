@@ -49,12 +49,10 @@ def _(np, plt, scipy):
     import knight_tour
     import simprob
 
-
     def advance_knight_counts(counts):
         return scipy.signal.convolve(
             counts, knight_tour.knight_moves_kernel, mode="same"
         )
-
 
     start = np.zeros(knight_tour.BOARD_SHAPE, dtype=int)
     start[0, 0] = 1
@@ -146,7 +144,6 @@ def _(mo):
 def _(knight_tour, np, observations, plt, scipy, simprob):
     import simprob.smoothing as smoothing
 
-
     class KnightTransition:
         def __call__(self, mask: np.ndarray) -> np.ndarray:
             return (
@@ -160,16 +157,12 @@ def _(knight_tour, np, observations, plt, scipy, simprob):
         def inv(self):
             return self
 
-
     inferred = np.asarray(
         list(
             smoothing.forward_backward(
                 observations[0],
                 sum(
-                    (
-                        [KnightTransition(), simprob.fuse(o)]
-                        for o in observations[1:]
-                    ),
+                    ([KnightTransition(), simprob.fuse(o)] for o in observations[1:]),
                     [],
                 ),
                 np.ones(knight_tour.BOARD_SHAPE, dtype=bool),

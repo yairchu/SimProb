@@ -26,13 +26,11 @@ def _(np, plt):
     noise_std = 0.5
     observations = position + noise_std * np.random.normal(size=len(position))
 
-
     def plot_measures():
         plt.plot(position, label="Path")
         plt.scatter(
             np.arange(len(position)), observations, label="Noisy path observations"
         )
-
 
     plot_measures()
     plt.legend()
@@ -65,9 +63,7 @@ def _(accel_std, noise_std, np, observations, plot_measures, plt, scipy):
 
     means = np.array([x.mean[0] for x in kalman_comb])
     stds = np.array([x.covar[0, 0] ** 0.5 for x in kalman_comb])
-    [means_plot] = plt.plot(
-        means, label="Path estimation at each time with Kalman"
-    )
+    [means_plot] = plt.plot(means, label="Path estimation at each time with Kalman")
     for p in np.linspace(0.05, 1, 7)[:-1]:
         s = scipy.stats.chi2(1).isf(p) ** 0.5
         for mult in [s, -s]:

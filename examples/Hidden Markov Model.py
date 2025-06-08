@@ -64,7 +64,6 @@ def _(knight_tour, np, path, plt, reported_path):
     import simprob.smoothing as smoothing
     import simprob.hidden_markov as hmm
 
-
     def reported_path_probabilites(pos):
         """
         Position reported by drunk reporter has 50% chance of being random,
@@ -75,7 +74,6 @@ def _(knight_tour, np, path, plt, reported_path):
         res = np.ones(knight_tour.BOARD_SHAPE)
         res[pos[::-1]] += res.sum()
         return hmm.Histogram(res)
-
 
     inferred = np.asarray(
         list(
