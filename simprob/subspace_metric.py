@@ -1,8 +1,5 @@
 """
-Covariance matrices extended to support uniform distributions.
-
-In Kalman filters where observations measure only part of the state,
-a PartialCovar is used to signify that the other parts are not known in the observation.
+Symmetric positive-semidefinite matrix that encodes covariance or precision on a restricted sub-space. Directions outside the sub-space are treated as unbounded (covariance view) / fully known (precision view).
 """
 
 import dataclasses
@@ -11,9 +8,9 @@ import scipy
 
 
 @dataclasses.dataclass
-class PartialCovar:
+class SubspaceMetric:
     """
-    Covariance matrix extended to support uniform distributions variance.
+    Symmetric positive-semidefinite matrix that encodes covariance or precision on a restricted sub-space. Directions outside the sub-space are treated as unbounded (covariance view) / fully known (precision view).
 
     Components:
     * [S, N] bounded_subspace: The sub-space that has a bounded distribution
@@ -44,7 +41,7 @@ class PartialCovar:
         Real component of the covariance projected to the full covariance matrix
         (uniform parts are zeroed).
         """
-        return PartialCovar.transform(self.sub_covar, self.bounded_subspace.T)
+        return SubspaceMetric.transform(self.sub_covar, self.bounded_subspace.T)
 
     def emulate_as_real(self, inf_const=1e6):
         """
@@ -113,7 +110,7 @@ class PartialCovar:
         subspace = scipy.linalg.null_space(covar.uniform_subspace @ mat.T).T
         return type(covar)(
             bounded_subspace=subspace,
-            sub_covar=PartialCovar.transform(real, subspace),
+            sub_covar=SubspaceMetric.transform(real, subspace),
         )
 
     def __add__(self, other):
@@ -123,7 +120,7 @@ class PartialCovar:
         subspace = scipy.linalg.null_space(np.concatenate(uni_spaces)).T
         return type(self)(
             bounded_subspace=subspace,
-            sub_covar=PartialCovar.transform(self.real + other.real, subspace),
+            sub_covar=SubspaceMetric.transform(self.real + other.real, subspace),
         ).simplify()
 
     __array_priority__ = 1000  # Ensures NumPy prefers calling our roperators
@@ -134,10 +131,10 @@ class PartialCovar:
     @staticmethod
     def assure_symmetric_matrix(mat, do_assert=False):
         "Enforce matrix symmetry (for covariance matrices)"
-        if isinstance(mat, PartialCovar):
+        if isinstance(mat, SubspaceMetric):
             return dataclasses.replace(
                 mat,
-                sub_covar=PartialCovar.assure_symmetric_matrix(
+                sub_covar=SubspaceMetric.assure_symmetric_matrix(
                     mat.sub_covar, do_assert
                 ),
             )

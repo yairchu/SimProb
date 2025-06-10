@@ -13,7 +13,7 @@ import numpy as np
 import operator
 
 from .multivar_normal import MultivariateNormal
-from .partial_covar import PartialCovar
+from .subspace_metric import SubspaceMetric
 
 
 @dataclasses.dataclass

@@ -3,7 +3,7 @@ Multivariate normal (Gaussian) distributions.
 
 Unlike scipy.stats.multivariate_normal, MultivariateNormal implements many useful methods.
 
-Also supports uniform distributions by using PartialCovar as its covariance matrix.
+Also supports uniform distributions by using a SubspaceMetric as its covariance matrix.
 
 Properties: (TODO: test with hypothesis)
 * fuse/`&` is associative and cummutative, with uniform as its identity element
@@ -15,7 +15,7 @@ Properties: (TODO: test with hypothesis)
 
 import numpy as np
 
-from .partial_covar import PartialCovar
+from .subspace_metric import SubspaceMetric
 
 
 class MultivariateNormal:
@@ -60,13 +60,13 @@ class MultivariateNormal:
     @property
     def precision(self):
         if self._precision is None:
-            self._precision = PartialCovar.inv(self.covar)
+            self._precision = SubspaceMetric.inv(self.covar)
         return self._precision
 
     @property
     def covar(self):
         if self._covar is None:
-            self._covar = PartialCovar.inv(self.precision)
+            self._covar = SubspaceMetric.inv(self.precision)
         return self._covar
 
     @property
@@ -98,7 +98,7 @@ class MultivariateNormal:
         if self.dim < other.shape[1]:
             return other @ self.extend(other.shape[1])
         return type(self)(
-            mean=other @ self.mean, covar=PartialCovar.transform(self.covar, other)
+            mean=other @ self.mean, covar=SubspaceMetric.transform(self.covar, other)
         )
 
     def __and__(self, other: "MultivariateNormal") -> "MultivariateNormal":
@@ -158,5 +158,5 @@ class MultivariateNormal:
         "Concatenate distributions over distinct variables to a joint distribution over their concatenation"
         return cls(
             mean=np.concatenate([x.mean for x in dists]),
-            covar=PartialCovar.concat([x.covar for x in dists]),
+            covar=SubspaceMetric.concat([x.covar for x in dists]),
         )
